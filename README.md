@@ -12,5 +12,5 @@ You will get key.pem and cert.pem
 `$ npm start`
 
 Go to https://localhost:3000  
-In another device go to https://your_ip:3000  
+In another device, go to https://your_ip:3000  
 Replace "your_ip" with IPv4 Address
