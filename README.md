@@ -7,7 +7,7 @@ Go to the project root folder and run
 
 `$ openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem`
 
-You will get key.perm and cert.pem
+You will get key.pem and cert.pem
 
 `$ npm start`
 
