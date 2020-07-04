@@ -1,0 +1,9 @@
+@font-face {
+  font-family: fredokaone;
+  font-weight: bold;
+  src: url("/fonts/fredokaone.ttf");
+}
+
+* {
+  font-family: fredokaone;
+}

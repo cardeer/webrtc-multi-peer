@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+  <div style="margin-bottom: 5px;">
+    <button onclick="connect()">CONNECT</button>
+  </div>
+
+  <video id="video" autoplay></video>
+</body>
+
+</html>
+
+<script>
+  'use strict'
+  const socket = io()
+  const video = document.querySelector('#video')
+  var stream
+
+  const pc = new RTCPeerConnection()
+
+  pc.addEventListener('icecandidate', e => {
+    socket.emit('iceCandidate', e.candidate)
+  })
+
+  pc.addEventListener('track', e => {
+    console.log(e)
+    video.srcObject = e.streams[0]
+  })
+
+  async function connect() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment'
+        }
+      })
+      
+      video.srcObject = stream
+
+      stream.getTracks().forEach(track => pc.addTrack(track, stream))
+
+      pc.createOffer().then(offer => {
+        pc.setLocalDescription(offer)
+        socket.emit('peerDesc', offer)
+      })
+    }
+    catch{ }
+  }
+
+  socket.on('peerDesc', desc => {
+    console.log(desc)
+    pc.setRemoteDescription(new RTCSessionDescription(desc))
+
+    pc.createAnswer().then(answer => {
+      pc.setLocalDescription(answer)
+      socket.emit('peerDescAnswer', answer)
+    })
+  })
+
+  socket.on('peerDescAnswer', desc => {
+    console.log(desc)
+    pc.setRemoteDescription(new RTCSessionDescription(desc))
+  })
+
+  socket.on('iceCandidate', async candidate => {
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(candidate))
+      console.log('ice')
+    }
+    catch{ }
+  })
+</script>
