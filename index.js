@@ -22,9 +22,6 @@ app.use(express.static(__dirname + '/public'))
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/pages/index.html')
 })
-app.get('/multiple', (req, res) => {
-  res.sendFile(__dirname + '/pages/multiple.html')
-})
 
 var hostId = null
 
