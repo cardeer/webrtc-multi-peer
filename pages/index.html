@@ -10,72 +10,99 @@
 </head>
 
 <body>
-  <div style="margin-bottom: 5px;">
-    <button onclick="connect()">CONNECT</button>
+  <div>
+    <button onclick="turnOn()">Turn on</button>
+    <button onclick="requestStream()">Request stream</button>
   </div>
 
-  <video id="video" autoplay></video>
+  <div>
+    <video id="video" autoplay></video>
+  </div>
 </body>
 
 </html>
 
 <script>
-  'use strict'
   const socket = io()
+  var media = null
   const video = document.querySelector('#video')
-  var stream
+  const pcs = {}
+  var socketId = null
+  var hostId = null
 
-  const pc = new RTCPeerConnection()
+  function createPeerConnection() {
+    const pc = new RTCPeerConnection()
 
-  pc.addEventListener('icecandidate', e => {
-    socket.emit('iceCandidate', e.candidate)
-  })
-
-  pc.addEventListener('track', e => {
-    console.log(e)
-    video.srcObject = e.streams[0]
-  })
-
-  async function connect() {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment'
-        }
-      })
-      
-      video.srcObject = stream
-
-      stream.getTracks().forEach(track => pc.addTrack(track, stream))
-
-      pc.createOffer().then(offer => {
-        pc.setLocalDescription(offer)
-        socket.emit('peerDesc', offer)
-      })
+    pc.onicecandidate = e => {
+      socket.emit('iceCandidate', e.candidate)
     }
-    catch{ }
+
+    pc.ontrack = e => {
+      console.log(e)
+      video.srcObject = e.streams[0]
+    }
+
+    return pc
   }
 
-  socket.on('peerDesc', desc => {
-    console.log(desc)
-    pc.setRemoteDescription(new RTCSessionDescription(desc))
+  async function turnOn() {
+    media = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    video.srcObject = media
 
-    pc.createAnswer().then(answer => {
-      pc.setLocalDescription(answer)
-      socket.emit('peerDescAnswer', answer)
+    socket.emit('hostReady')
+  }
+
+  function requestStream() {
+    socket.emit('getSocketId')
+  }
+
+  socket.on('returnSocketId', (id, hId) => {
+    console.log('your socket id: ' + id)
+    socketId = id
+    hostId = hId
+    pcs[hostId] = createPeerConnection()
+    socket.emit('requestStream')
+  })
+
+  socket.on('requestStream', (id) => {
+    console.log('1. requested from ' + id)
+
+    pcs[id] = createPeerConnection()
+
+    media.getTracks().forEach((track, i) => {
+      pcs[id].addTrack(track, media)
+    })
+
+    pcs[id].createOffer().then(offer => {
+      pcs[id].setLocalDescription(offer)
+      socket.emit('peer', id, offer)
     })
   })
 
-  socket.on('peerDescAnswer', desc => {
-    console.log(desc)
-    pc.setRemoteDescription(new RTCSessionDescription(desc))
+  socket.on('peer', desc => {
+    console.log('2. peer:', desc)
+    pcs[hostId].setRemoteDescription(new RTCSessionDescription(desc))
+
+    pcs[hostId].createAnswer().then(answer => {
+      pcs[hostId].setLocalDescription(answer)
+      socket.emit('peerAnswer', answer)
+    })
   })
 
-  socket.on('iceCandidate', async candidate => {
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate))
-      console.log('ice')
+  socket.on('peerAnswer', (id, desc) => {
+    console.log('3. answer:', desc)
+    pcs[id].setRemoteDescription(new RTCSessionDescription(desc))
+  })
+
+  socket.on('iceCandidate', async (id, candidate) => {
+    console.log('candidate id: ' + id)
+    if (pcs[id]) {
+      console.log(id == hostId ? 'host candidate' : '')
+      console.log('4. candidate', candidate)
+      try {
+        await pcs[id].addIceCandidate(new RTCIceCandidate(candidate))
+      }
+      catch { }
     }
-    catch{ }
   })
 </script>
